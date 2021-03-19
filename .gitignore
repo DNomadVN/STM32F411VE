@@ -1,2 +1,2 @@
-BH1750/*
-!BH1750/Core
+/BH1750_Driver/*
+!/BH1750_Driver/Core
