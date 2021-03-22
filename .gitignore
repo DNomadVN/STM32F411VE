@@ -1,2 +1,6 @@
 /BH1750_Driver/*
 !/BH1750_Driver/Core
+
+/PhaseOne/*
+!/PhaseOne/Core
+!/PhaseOne/Readme.md

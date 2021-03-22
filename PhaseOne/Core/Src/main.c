@@ -24,7 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include "BH1750_Driver.h"
-
+#include "TCA9548A_Driver.h"
 
 /* USER CODE END Includes */
 
@@ -44,15 +44,15 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
-DMA_HandleTypeDef hdma_i2c1_rx;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-BH1750_HandleTypeDef sensorHIGH;
-BH1750_HandleTypeDef sensorLOW;
-float sensorValue[2];
-char result[10];
+TCA9548A_HandleTypeDef i2cHub;
+BH1750_HandleTypeDef sensor[4];
+uint8_t TCAAddress = (0x70 << 1);
+float result[4];
+char message[10];
 uint8_t ret;
 
 /* USER CODE END PV */
@@ -60,7 +60,6 @@ uint8_t ret;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
@@ -100,16 +99,18 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_I2C1_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-	BH1750_Init(&sensorHIGH, &hi2c1, BH1750_ADDRESS_HIGH);
-  BH1750_Init(&sensorLOW, &hi2c1, BH1750_ADDRESS_LOW);
-	BH1750_PowerState(&sensorHIGH, 1);
-  BH1750_PowerState(&sensorLOW, 1);
-	BH1750_SetMode(&sensorHIGH, CONTINUOUS_H_RES_MODE);
-  BH1750_SetMode(&sensorLOW, CONTINUOUS_H_RES_MODE);
+	TCA9548A_Init(&i2cHub, &hi2c1, TCAAddress);
+	
+	for (uint8_t i = 0; i < 4; i++) {
+		TCA9548A_SelectSingleChannel(&i2cHub, i);
+		BH1750_Init(&sensor[i], &hi2c1, BH1750_ADDRESS_LOW);
+		BH1750_PowerState(&sensor[i], 1);
+		BH1750_SetMode(&sensor[i], CONTINUOUS_H_RES_MODE);
+	}
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -119,19 +120,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		// CheckButton();
-			BH1750_ReadLight(&sensorHIGH, &sensorValue[0]);
-      BH1750_ReadLight(&sensorLOW, &sensorValue[1]);
-
-      // Send the value of sensor at HIGH Address
-			ret = snprintf(result, sizeof(result), "%f", sensorValue[0]);
-			result[9] = ' ';
-			HAL_UART_Transmit(&huart2, (uint8_t *)result, 10, 0xFFFF);		
-
-      // Send the value of sensor at LOW Address
-      ret = snprintf(result, sizeof(result), "%f", sensorValue[1]);
-			result[9] = '\n';
-			HAL_UART_Transmit(&huart2, (uint8_t *)result, 10, 0xFFFF);		
+		for (uint8_t i = 0; i < 4; i++) {
+			TCA9548A_SelectSingleChannel(&i2cHub, i);
+			BH1750_ReadLight(&sensor[i], &result[i]);
+			
+			ret = snprintf(message, sizeof(message), "%f", result[i]);
+			if (i < 3) message[9] = ' ';
+			else message[9] = '\n';
+			HAL_UART_Transmit(&huart2, (uint8_t *)message, 10, 10);
+		}
 		HAL_Delay(1000);
   }
   /* USER CODE END 3 */
@@ -244,39 +241,16 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
   */
 static void MX_GPIO_Init(void)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-
-  /*Configure GPIO pin : PA7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_7;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
