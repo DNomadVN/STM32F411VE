@@ -70,32 +70,6 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-/* void sensorToChar() {
-	int16_t sensorInt = (int16_t)sensorValue;
-	int8_t i = 4;
-	do {
-		result[i] = sensorInt % 10 + '0';
-		sensorInt /= 10;
-		i--;
-	} while (sensorInt > 0 && i >= 0);
-
-	result[5] = '\n';
-} */
-
-/* void CheckButton() {
-	if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_7)) {
-		HAL_Delay(20);
-		if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_7)) {
-			BH1750_ReadLight(address, &sensorValue);
-			ret = snprintf(result, sizeof(result), "%f", sensorValue);
-			result[9] = '\n';
-			HAL_UART_Transmit(&huart2, (uint8_t *)result, 10, 0xFFFF);
-			while(!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_7));
-		}
-	}
-} */
-
-
 /* USER CODE END 0 */
 
 /**

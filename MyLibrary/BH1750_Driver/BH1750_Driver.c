@@ -3,7 +3,6 @@
  * This can control and read data from multiple sensor at the same time.
  */
 
-#include "main.h"
 
 #include "BH1750_Driver.h"
 
@@ -20,9 +19,9 @@ uint8_t         BH1750_Mtreg;
  *                be shifted to the left before calling by I2C function.
  * @retval BH1750 Status
  */
-BH1750_STATUS BH1750_Init(BH1750_HandleTypeDef *hbh1750, I2C_HandleTypeDef *hi2c, uint16_t address) {
+BH1750_STATUS BH1750_Init(BH1750_HandleTypeDef *hbh1750, I2C_HandleTypeDef *hi2c, uint16_t Address) {
     hbh1750->I2C_channel = hi2c;
-	hbh1750->Address = address;
+	hbh1750->Address = Address;
 	if(BH1750_OK == BH1750_Reset(hbh1750))
 	{
 		if(BH1750_OK == BH1750_SetMtreg(hbh1750, BH1750_DEFAULT_MTREG)) // Set default value;
