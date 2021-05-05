@@ -1,7 +1,21 @@
 /*
- * This driver used for BH1750 sensor like GY-30 BH1750. 
- * This can control and read data from multiple sensor at the same time.
- */
+  ==============================================================================
+                        ##### How to use this driver #####
+  ==============================================================================
+	Set up:
+  	#1	@ref BH1750_Init()
+	 	Ex: BH1750_Init(&sensor[i], &hi2c1, BH1750_ADDRESS_LOW);
+	#2	@ref BH1750_PowerState()
+		Ex: BH1750_PowerState(&sensor[i], 1);
+	#3	@ref BH1750_SetMode()
+		Ex: BH1750_SetMode(&sensor[i], CONTINUOUS_H_RES_MODE);
+		
+	Let play: Read light @ref BH1750_ReadLight()
+	BH1750_ReadLight(&sensor[i], &result[i]);
+	
+	
+	
+	*/
 
 
 #include "BH1750_Driver.h"
