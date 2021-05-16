@@ -53,7 +53,6 @@ typedef struct PCA9685_Driver {
 	uint8_t Address;
 } PCA9685_HandleTypeDef;
 
-uint32_t _oscillator_freq;
 
 // function
 void PCA9685_Init(PCA9685_HandleTypeDef *hpca9685, 

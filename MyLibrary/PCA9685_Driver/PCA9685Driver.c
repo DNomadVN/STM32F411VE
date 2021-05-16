@@ -21,6 +21,7 @@
 	*/
 #include "PCA9685Driver.h"
 
+uint32_t _oscillator_freq;
 
 void PCA9685_Init(PCA9685_HandleTypeDef *hpca9685, 
 									I2C_HandleTypeDef *hi2c,
