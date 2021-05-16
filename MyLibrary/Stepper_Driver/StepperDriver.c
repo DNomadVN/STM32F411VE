@@ -53,6 +53,25 @@ STEPPER_STATUS setDirCW(Stepper_HandleTypeDef *stepper) {
 	return STEPPER_OK;
 }
 
+__weak void delay_us(uint16_t us)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(us);
+  /*  TIM2 configure
+   *  Clock Source: Internal Clock
+   *  Prescaler: 50 - 1
+   *  Counter Period: 0xFFFF - 1
+   *  Clock Configure: 50MHz
+   *  Code:
+   *  __HAL_TIM_SET_COUNTER(&htim2,0);  // set the counter value a 0
+   *  while ((uint16_t)__HAL_TIM_GET_COUNTER(&htim2) < us);
+   */
+}
+void delay_us (uint16_t us)
+{
+	__HAL_TIM_SET_COUNTER(&htim2,0);  // set the counter value a 0
+	while ((uint16_t)__HAL_TIM_GET_COUNTER(&htim2) < us);
+}
 STEPPER_STATUS runToTarget(Stepper_HandleTypeDef *stepper, uint16_t target) {
 	uint32_t current = stepper->CurrentPos;
 	if (target != current) {

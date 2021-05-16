@@ -1,7 +1,7 @@
 #ifndef STEPPERDRIVER_H_
 #define STEPPERDRIVER_H_
 
-#include "main.h"
+#include "stm32f4xx_hal.h"
 
 // Time delay write HIGH and LOW to PIN PULSE in microsecond
 #define TdelayON    50
