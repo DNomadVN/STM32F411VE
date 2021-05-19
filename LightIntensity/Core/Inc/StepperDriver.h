@@ -8,8 +8,12 @@
 #define TdelayOFF  300
 
 // diameter of pulley (millimeters)
-#define Diameter 13
+#define DIAMETER 13.2
 #define PI 		  3.14159
+
+// Chuyen muc fake so
+// PulTranfer = 200 * stepper->Microstep / Diameter / PI
+#define FACTOR 160
 
 typedef enum {
 	STEPPER_OK 	  = 0,
@@ -22,8 +26,8 @@ typedef struct StepperDriver {
 	uint16_t GPIO_Pin_Pulse;
 	// uint16_t GPIO_Pin_Enable;
 	uint8_t Microstep;
-	uint16_t CurrentPos;
-	uint16_t TargetPos;
+	uint32_t CurrentPulse;
+	uint32_t TargetPulse;
 } Stepper_HandleTypeDef;
 
 STEPPER_STATUS StepperInit(Stepper_HandleTypeDef *stepper,
