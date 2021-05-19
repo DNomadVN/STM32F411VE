@@ -97,6 +97,33 @@ void decryption(uint8_t *data) {
 	info3 = (data[8] - '0') * 100 + (data[9] - '0') * 10 + (data[10] - '0');
 	
 }
+
+// Keep It Safe
+void keepMotorSafe() {
+	uint32_t X1, X2, X3;
+	X1 = Step1.TargetPulse;
+	X2 = Step2.TargetPulse;
+	X3 = Step3.TargetPulse;
+	
+	// Step 2
+	if (X2 > 360 * FACTOR) 				X2 = 360 * FACTOR;
+	if (X2 < (110 * FACTOR)) 			X2 = 110 * FACTOR;
+	
+	// Step 1
+	if (X1 > 462 * FACTOR) 				X1 = 462 * FACTOR;
+	if (X1 < 212 * FACTOR) 				X1 = 212 * FACTOR;
+	if (X1 < (X2 + 103 * FACTOR)) X1 = X2 + 103 * FACTOR;
+
+	// Step3
+	if (X3 > 259 * FACTOR) 				X3 = 259 * FACTOR;
+	if (X3 < (8 * FACTOR)) 				X3 = 8 * FACTOR;
+	if (X3 > (X2 - 103 * FACTOR)) X3 = X2 - 103 * FACTOR;
+	
+	Step1.TargetPulse = X1;
+	Step2.TargetPulse = X2;
+	Step3.TargetPulse = X3;
+}
+
 // Transmision Data
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
@@ -118,6 +145,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 						setTargetPos(&Step1, info1);
 						setTargetPos(&Step2, info2);
 						setTargetPos(&Step3, info3);
+						keepMotorSafe();
 						HAL_UART_Transmit_IT(&huart2, (uint8_t *)TarCompleted, sizeof(TarCompleted));
 						program = RUN_STEPPER;
 						break;
@@ -128,6 +156,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 	
 }
+
 
 /* USER CODE END 0 */
 
@@ -185,11 +214,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		
+		if (program == RUN_STEPPER) {
+			
 			runToTarget(&Step1);
 			runToTarget(&Step2);
 			runToTarget(&Step3);
-		
+			
+		}
 
   }
   /* USER CODE END 3 */

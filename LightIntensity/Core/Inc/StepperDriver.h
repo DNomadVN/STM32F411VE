@@ -12,7 +12,7 @@
 #define PI 		  3.14159
 
 // Chuyen muc fake so
-// PulTranfer = 200 * stepper->Microstep / Diameter / PI
+// PulTranfer = 200 * stepper->Microstep / Diameter / PI    = 160
 #define FACTOR 160
 
 typedef enum {
