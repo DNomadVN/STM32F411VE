@@ -22,7 +22,12 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 #include "StepperDriver.h"
+#include "TCA9548A_Driver.h"
+#include "BH1750_Driver.h"
+
+
 
 /* USER CODE END Includes */
 
@@ -48,16 +53,26 @@ TIM_HandleTypeDef htim2;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+// Variables for Step
 Stepper_HandleTypeDef Step1;
 Stepper_HandleTypeDef Step2;
-Stepper_HandleTypeDef Step3;
+Stepper_HandleTypeDef Step0;
 
 uint8_t data[11];
-uint16_t info1, info2, info3;
+uint16_t info0, info1, info2;
+
+// Variables for Sensor
+TCA9548A_HandleTypeDef i2cHub;
+BH1750_HandleTypeDef sensor[4];
+uint8_t TCAAddress = (0x70 << 1);
+float result[4];
+char message[10];
+uint8_t ret;
 
 typedef enum {
-	IDLE	  = 0,
-	RUN_STEPPER = 1
+	IDLE = 0,
+	RUN_STEPPER = 1,
+	READ_SENSOR = 2
 } MODE;
 
 MODE program = IDLE;
@@ -92,36 +107,36 @@ void delay_us(uint16_t us)
 
 /* =========================================================== */
 void decryption(uint8_t *data) {
-	info1 = (data[2] - '0') * 100 + (data[3] - '0') * 10 + (data[4] - '0');
-	info2 = (data[5] - '0') * 100 + (data[6] - '0') * 10 + (data[7] - '0');
-	info3 = (data[8] - '0') * 100 + (data[9] - '0') * 10 + (data[10] - '0');
+	info0 = (data[2] - '0') * 100 + (data[3] - '0') * 10 + (data[4] - '0');
+	info1 = (data[5] - '0') * 100 + (data[6] - '0') * 10 + (data[7] - '0');
+	info2 = (data[8] - '0') * 100 + (data[9] - '0') * 10 + (data[10] - '0');
 	
 }
 
 // Keep It Safe
 void keepMotorSafe() {
-	uint32_t X1, X2, X3;
+	uint32_t X0, X1, X2;
+	X0 = Step0.TargetPulse;
 	X1 = Step1.TargetPulse;
 	X2 = Step2.TargetPulse;
-	X3 = Step3.TargetPulse;
-	
-	// Step 2
-	if (X2 > 360 * FACTOR) 				X2 = 360 * FACTOR;
-	if (X2 < (110 * FACTOR)) 			X2 = 110 * FACTOR;
 	
 	// Step 1
-	if (X1 > 462 * FACTOR) 				X1 = 462 * FACTOR;
-	if (X1 < 212 * FACTOR) 				X1 = 212 * FACTOR;
-	if (X1 < (X2 + 103 * FACTOR)) X1 = X2 + 103 * FACTOR;
-
-	// Step3
-	if (X3 > 259 * FACTOR) 				X3 = 259 * FACTOR;
-	if (X3 < (8 * FACTOR)) 				X3 = 8 * FACTOR;
-	if (X3 > (X2 - 103 * FACTOR)) X3 = X2 - 103 * FACTOR;
+	if (X1 > 359 * FACTOR) 				X1 = 359 * FACTOR;
+	if (X1 < (110 * FACTOR)) 			X1 = 110 * FACTOR;
 	
+	// Step 2
+	if (X2 > 462 * FACTOR) 				X2 = 462 * FACTOR;
+	if (X2 < 212 * FACTOR) 				X2 = 212 * FACTOR;
+	if (X2 < (X1 + 103 * FACTOR)) X2 = X1 + 103 * FACTOR;
+
+	// Step0
+	if (X0 > 259 * FACTOR) 				X0 = 259 * FACTOR;
+	if (X0 < (8 * FACTOR)) 				X0 = 8 * FACTOR;
+	if (X0 > (X1 - 103 * FACTOR)) X0 = X1 - 103 * FACTOR;
+	
+	Step0.TargetPulse = X0;
 	Step1.TargetPulse = X1;
 	Step2.TargetPulse = X2;
-	Step3.TargetPulse = X3;
 }
 
 // Transmision Data
@@ -131,25 +146,34 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		// Convert data to information
 		switch (data[0]) {
 			case 'S': // Stepper
+			{
 				switch (data[1]){
 					case 'C': // Set current position
 						decryption(data);
 						// Set both Cur and Tar to prevent motor running after set Current Pos
+						setCurrentPos(&Step0, info0);
 						setCurrentPos(&Step1, info1);
 						setCurrentPos(&Step2, info2);
-						setCurrentPos(&Step3, info3);
 						HAL_UART_Transmit_IT(&huart2, (uint8_t *)CurCompleted, sizeof(CurCompleted));
 						break;
 					case 'T': // Set target position
 						decryption(data);
+						setTargetPos(&Step0, info0);
 						setTargetPos(&Step1, info1);
 						setTargetPos(&Step2, info2);
-						setTargetPos(&Step3, info3);
 						keepMotorSafe();
 						HAL_UART_Transmit_IT(&huart2, (uint8_t *)TarCompleted, sizeof(TarCompleted));
 						program = RUN_STEPPER;
 						break;
 				}
+				break;
+			}
+			case 'R': // Read Sensor
+			{
+				program = READ_SENSOR;
+				break;
+			}
+						
 		}
 		
 		HAL_UART_Receive_IT(&huart2, (uint8_t *)data, 11);
@@ -195,14 +219,24 @@ int main(void)
   HAL_TIM_Base_Start(&htim2);
 	
 	// Init STEP
-	StepperInit(&Step1, GPIOC, GPIO_PIN_7, GPIO_PIN_6, 32, 0);
-	StepperInit(&Step2, GPIOC, GPIO_PIN_9, GPIO_PIN_8, 32, 0);
-	StepperInit(&Step3, GPIOA, GPIO_PIN_9, GPIO_PIN_8, 32, 0);
+	StepperInit(&Step0, GPIOA, GPIO_PIN_9, GPIO_PIN_8, 32, 0);
+	StepperInit(&Step1, GPIOC, GPIO_PIN_9, GPIO_PIN_8, 32, 0);
+	StepperInit(&Step2, GPIOC, GPIO_PIN_7, GPIO_PIN_6, 32, 0);
 	
 	// Init UART
 	HAL_UART_Receive_IT(&huart2, (uint8_t *)data, 11);
 	
 	
+	// Init Sensor
+	TCA9548A_Init(&i2cHub, &hi2c1, TCAAddress);
+	
+	for (uint8_t i = 0; i < 4; i++) {
+		TCA9548A_SelectSingleChannel(&i2cHub, i);
+		BH1750_Init(&sensor[i], &hi2c1, BH1750_ADDRESS_LOW);
+		BH1750_PowerState(&sensor[i], 1);
+		BH1750_SetMode(&sensor[i], CONTINUOUS_H_RES_MODE);
+	}
+
 
 
   /* USER CODE END 2 */
@@ -215,11 +249,21 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 		if (program == RUN_STEPPER) {
-			
+			runToTarget(&Step0);
 			runToTarget(&Step1);
 			runToTarget(&Step2);
-			runToTarget(&Step3);
-			
+		} 
+		else if (program == READ_SENSOR) {
+				for (uint8_t i = 0; i < 4; i++) {
+				TCA9548A_SelectSingleChannel(&i2cHub, i);
+				BH1750_ReadLight(&sensor[i], &result[i]);
+				
+				ret = snprintf(message, sizeof(message), "%f", result[i]);
+				if (i < 3) message[9] = ' ';
+				else message[9] = '\n';
+				HAL_UART_Transmit(&huart2, (uint8_t *)message, 10, 10);
+				program = IDLE;
+			}
 		}
 
   }

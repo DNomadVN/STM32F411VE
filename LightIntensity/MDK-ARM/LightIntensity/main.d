@@ -33,4 +33,7 @@ lightintensity\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.
 lightintensity\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h
 lightintensity\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 lightintensity\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
+lightintensity\main.o: C:\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
 lightintensity\main.o: ../Core/Inc/StepperDriver.h
+lightintensity\main.o: ../Core/Inc/TCA9548A_Driver.h
+lightintensity\main.o: ../Core/Inc/BH1750_Driver.h

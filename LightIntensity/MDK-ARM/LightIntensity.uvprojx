@@ -413,6 +413,16 @@
               <FileType>1</FileType>
               <FilePath>..\Core\Src\StepperDriver.c</FilePath>
             </File>
+            <File>
+              <FileName>BH1750_Driver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\BH1750_Driver.c</FilePath>
+            </File>
+            <File>
+              <FileName>TCA9548A_Driver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\TCA9548A_Driver.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
