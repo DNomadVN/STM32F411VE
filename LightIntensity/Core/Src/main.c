@@ -47,19 +47,34 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+// Variable of System
+typedef enum {
+	IDLE = 0,
+	RUN_STEPPER = 1,
+	READ_SENSOR = 2
+} MODE;
+
+MODE program = IDLE;
+
 // Variables for Step
+Stepper_HandleTypeDef Step0;
 Stepper_HandleTypeDef Step1;
 Stepper_HandleTypeDef Step2;
-Stepper_HandleTypeDef Step0;
 
-uint8_t data[11];
+uint8_t data[12];
 uint16_t info0, info1, info2;
+uint8_t flag;
+
+uint8_t CurCompleted[] = "\nSet Current Position completed!\n";
+uint8_t TarCompleted[] = "\nSet Target Position completed!\n";
+uint8_t Done[] = "\nDone!!!\n";
 
 // Variables for Sensor
 TCA9548A_HandleTypeDef i2cHub;
@@ -69,18 +84,9 @@ float result[4];
 char message[10];
 uint8_t ret;
 
-typedef enum {
-	IDLE = 0,
-	RUN_STEPPER = 1,
-	READ_SENSOR = 2
-} MODE;
 
-MODE program = IDLE;
 
-uint8_t CurCompleted[] = "\nSet Current Position for 3 Stepper Motor completed!\n";
-uint8_t TarCompleted[] = "\nSet Target Position for 3 Stepper Motor completed!\n";
-uint8_t RunStepper[] = "\nSteppers are running!\n";
-uint8_t Done[] = "\nDone!!!\n";
+
 
 
 /* USER CODE END PV */
@@ -91,6 +97,7 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -105,15 +112,8 @@ void delay_us(uint16_t us)
    while ((uint16_t)__HAL_TIM_GET_COUNTER(&htim2) < us);
 }
 
-/* =========================================================== */
-void decryption(uint8_t *data) {
-	info0 = (data[2] - '0') * 100 + (data[3] - '0') * 10 + (data[4] - '0');
-	info1 = (data[5] - '0') * 100 + (data[6] - '0') * 10 + (data[7] - '0');
-	info2 = (data[8] - '0') * 100 + (data[9] - '0') * 10 + (data[10] - '0');
-	
-}
 
-// Keep It Safe
+// Hold 3 board to avoid collision
 void keepMotorSafe() {
 	uint32_t X0, X1, X2;
 	X0 = Step0.TargetPulse;
@@ -139,45 +139,68 @@ void keepMotorSafe() {
 	Step2.TargetPulse = X2;
 }
 
-// Transmision Data
+// Transmision Data via UART
+void decryption(uint8_t *data) {
+	info0 = (data[3] - '0') * 100 + (data[4] - '0') * 10 + (data[5] - '0');
+	info1 = (data[6] - '0') * 100 + (data[7] - '0') * 10 + (data[8] - '0');
+	info2 = (data[9] - '0') * 100 + (data[10] - '0') * 10 + (data[11] - '0');
+	
+}
+void ManualControl() {
+	switch (data[1]) {
+		// Stepper
+		case 'S': 
+		{
+			switch (data[2]){
+				case 'C': // Set current position
+					decryption(data);
+					// Set both Cur and Tar to prevent motor running after set Current Pos
+					setCurrentPos(&Step0, info0);
+					setCurrentPos(&Step1, info1);
+					setCurrentPos(&Step2, info2);
+					HAL_UART_Transmit_IT(&huart2, (uint8_t *)CurCompleted, sizeof(CurCompleted));
+					break;
+				case 'T': // Set target position
+					decryption(data);
+					setTargetPos(&Step0, info0);
+					setTargetPos(&Step1, info1);
+					setTargetPos(&Step2, info2);
+					keepMotorSafe();
+					HAL_UART_Transmit_IT(&huart2, (uint8_t *)TarCompleted, sizeof(TarCompleted));
+					program = RUN_STEPPER;
+					break;
+			}
+			break;
+		}
+		// Read Sensor
+		case 'R': 
+		{
+			program = READ_SENSOR;
+			break;
+		}	
+	}
+}
+
+void AutoControl() {
+	
+}
+	
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == huart2.Instance) {
 		// Convert data to information
 		switch (data[0]) {
-			case 'S': // Stepper
-			{
-				switch (data[1]){
-					case 'C': // Set current position
-						decryption(data);
-						// Set both Cur and Tar to prevent motor running after set Current Pos
-						setCurrentPos(&Step0, info0);
-						setCurrentPos(&Step1, info1);
-						setCurrentPos(&Step2, info2);
-						HAL_UART_Transmit_IT(&huart2, (uint8_t *)CurCompleted, sizeof(CurCompleted));
-						break;
-					case 'T': // Set target position
-						decryption(data);
-						setTargetPos(&Step0, info0);
-						setTargetPos(&Step1, info1);
-						setTargetPos(&Step2, info2);
-						keepMotorSafe();
-						HAL_UART_Transmit_IT(&huart2, (uint8_t *)TarCompleted, sizeof(TarCompleted));
-						program = RUN_STEPPER;
-						break;
-				}
+			// Manual, control and get data via UART
+			case 'M':
+				ManualControl();
 				break;
-			}
-			case 'R': // Read Sensor
-			{
-				program = READ_SENSOR;
+			case 'A':
+				AutoControl();
 				break;
-			}
-						
 		}
-		
-		HAL_UART_Receive_IT(&huart2, (uint8_t *)data, 11);
+		HAL_UART_Receive_IT(&huart2, (uint8_t *)data, 12);
 	}
+		
 	
 }
 
@@ -215,6 +238,7 @@ int main(void)
   MX_I2C1_Init();
   MX_USART2_UART_Init();
   MX_TIM2_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim2);
 	
@@ -224,12 +248,11 @@ int main(void)
 	StepperInit(&Step2, GPIOC, GPIO_PIN_7, GPIO_PIN_6, 32, 0);
 	
 	// Init UART
-	HAL_UART_Receive_IT(&huart2, (uint8_t *)data, 11);
+	HAL_UART_Receive_IT(&huart2, (uint8_t *)data, 12);
 	
 	
 	// Init Sensor
-	TCA9548A_Init(&i2cHub, &hi2c1, TCAAddress);
-	
+	TCA9548A_Init(&i2cHub, &hi2c1, TCAAddress);	
 	for (uint8_t i = 0; i < 4; i++) {
 		TCA9548A_SelectSingleChannel(&i2cHub, i);
 		BH1750_Init(&sensor[i], &hi2c1, BH1750_ADDRESS_LOW);
@@ -249,6 +272,8 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 		if (program == RUN_STEPPER) {
+			// Check target
+			
 			runToTarget(&Step0);
 			runToTarget(&Step1);
 			runToTarget(&Step2);
@@ -348,6 +373,40 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.ClockSpeed = 100000;
+  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -437,8 +496,8 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9, GPIO_PIN_RESET);
