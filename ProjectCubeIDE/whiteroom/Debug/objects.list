@@ -1,4 +1,5 @@
 "Core/Src/BH1750_Driver.o"
+"Core/Src/PCA9685Driver.o"
 "Core/Src/StepperDriver.o"
 "Core/Src/TCA9548A_Driver.o"
 "Core/Src/main.o"

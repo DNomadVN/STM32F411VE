@@ -26,6 +26,7 @@
 #include "BH1750_Driver.h"
 #include "TCA9548A_Driver.h"
 #include "StepperDriver.h"
+#include "PCA9685Driver.h"
 
 /* USER CODE END Includes */
 
@@ -51,6 +52,9 @@
 
 #define SAFE_DISTANCE 103
 
+// PCA9685
+#define DELAY_LED 410
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -69,13 +73,12 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 // Messages for UART
 uint8_t Hello[] = "Welcome to Project: Automatic light intensity balance\n";
-uint8_t InitStepperMessage[] = "Setting Current Position of 3 Stepper\n";
-uint8_t TargetStepperMessage[] = "Setting Target Position of 3 Stepper\n";
+uint8_t InitStepperMessage[] = "Setting Current Position of 3 Steppers\n";
+uint8_t TargetStepperMessage[] = "Setting Target Position of 3 Steppers\n";
 uint8_t Done[] = "DONE!!\n";
-uint8_t RunStepperMessage[] = "3 Stepper are running to Target Position\n";
+uint8_t RunStepperMessage[] = "3 Stepper are running to Target Positions\n";
 uint8_t GetSensorMessage[] = "Getting data from Sensors\n";
-uint8_t ControlLEDMessage[] = "Control the Intensity of each LED\n";
-
+uint8_t ControlLEDMessage[] = "Control the Intensity of each LINE\n";
 
 // Variables for UART
 uint8_t byteTest;
@@ -106,6 +109,12 @@ BH1750_HandleTypeDef sensor[4];
 char dataSensorMessage[10];
 float dataSensor[4];
 uint8_t ret;
+
+// Variables for PCA and LED
+PCA9685_HandleTypeDef pcaHub;
+uint16_t intensity[3];
+uint16_t channelON[6];
+uint16_t channelOFF[6];
 
 
 /* USER CODE END PV */
@@ -139,6 +148,14 @@ void userSensorInit() {
 		BH1750_SetMode(&sensor[i], CONTINUOUS_H_RES_MODE);
 	}
 }
+
+void userPCAInit() {
+	PCA9685_Init(&pcaHub, &hi2c2, PCA9685_I2C_ADDRESS, 0);
+	PCA9685_SetOscillatorFrequency(&pcaHub, 27000000);
+	PCA9685_SetPWMFreq(&pcaHub, 1600);
+}
+
+
 // CHOOSE THE MANUAL CONTROL PROGRAM (It's still under UART interrupt function)
 void ManualControl() {
 	switch (dataReceived[1]) {
@@ -154,10 +171,7 @@ void ManualControl() {
 	case 'G':
 		program = GET_SENSOR;
 		break;
-	case '0':
-	case '1':
-	case '2':
-	case '3':
+	case 'L':
 		program = CONTROL_LED;
 		break;
 	}
@@ -231,6 +245,18 @@ void sendUARTaInt(uint16_t num) {
 	HAL_UART_Transmit(&huart2, (uint8_t *)result, sizeof(result), 1000);
 }
 
+void sendInfoPWM() {
+	uint16_t LEDOnTime;
+	for (uint8_t channel = 0; channel < 6; channel++) {
+		channelON[channel] = DELAY_LED - 1;
+		LEDOnTime = intensity[channel / 2] * 4096 / 1000;
+		channelOFF[channel]  = (LEDOnTime + DELAY_LED > 4096
+								? LEDOnTime + DELAY_LED - 4096
+								: LEDOnTime + DELAY_LED - 1);
+		PCA9685_SetPWM(&pcaHub, channel, channelON[channel], channelOFF[channel]);
+	}
+}
+
 // THE MAIN PROGRAMS
 void TestUART() { // DONE
 	HAL_UART_Transmit(&huart2, Hello, sizeof(Hello), 1000);
@@ -243,6 +269,9 @@ void SetInitCoorStepper() {
 	setCurrentPos(&Step0, info[0]);
 	setCurrentPos(&Step1, info[1]);
 	setCurrentPos(&Step2, info[2]);
+	sendUARTaInt(Step0.CurrentPulse / FACTOR);
+	sendUARTaInt(Step1.CurrentPulse / FACTOR);
+	sendUARTaInt(Step2.CurrentPulse / FACTOR);
 	HAL_UART_Transmit(&huart2, Done, sizeof(Done), 1000);
 	program = IDLE;
 }
@@ -289,6 +318,15 @@ void GetSensor() {
 
 void ControlLED() {
 	HAL_UART_Transmit(&huart2, ControlLEDMessage, sizeof(ControlLEDMessage), 1000);
+	DecryptData();
+	intensity[0] = info[0];
+	intensity[1] = info[1];
+	intensity[2] = info[2];
+	sendUARTaInt(intensity[0]);
+	sendUARTaInt(intensity[1]);
+	sendUARTaInt(intensity[2]);
+	sendInfoPWM();
+	HAL_UART_Transmit(&huart2, Done, sizeof(Done), 1000);
 	program = IDLE;
 }
 
@@ -333,8 +371,10 @@ int main(void)
   HAL_UART_Transmit(&huart2, Hello, sizeof(Hello), 1000);
   HAL_UART_Receive_IT(&huart2, dataReceived, SIZE_DATA);
 
+  // User Init
   userStepperInit();
   userSensorInit();
+  userPCAInit();
 
   /* USER CODE END 2 */
 

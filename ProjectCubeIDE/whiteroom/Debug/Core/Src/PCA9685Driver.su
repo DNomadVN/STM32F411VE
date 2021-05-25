@@ -1,0 +1,10 @@
+PCA9685Driver.c:25:6:PCA9685_Init	24	static
+PCA9685Driver.c:42:6:PCA9685_Reset	16	static
+PCA9685Driver.c:47:6:PCA9685_Sleep	24	static
+PCA9685Driver.c:55:6:PCA9685_Wakeup	24	static
+PCA9685Driver.c:62:6:PCA9685_SetExtClk	24	static
+PCA9685Driver.c:79:6:PCA9685_SetPWMFreq	40	static
+PCA9685Driver.c:102:6:PCA9685_SetOscillatorFrequency	16	static
+PCA9685Driver.c:106:6:PCA9685_SetPWM	40	static
+PCA9685Driver.c:113:6:PCA9685_Write8	32	static
+PCA9685Driver.c:117:6:PCA9685_Read8	40	static
