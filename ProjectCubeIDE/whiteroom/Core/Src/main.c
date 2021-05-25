@@ -151,9 +151,6 @@ void ManualControl() {
 	case 'A':
 		program = SET_TARGET_COOR;
 		break;
-	case 'R':
-		program = RUN_STEPPER;
-		break;
 	case 'G':
 		program = GET_SENSOR;
 		break;

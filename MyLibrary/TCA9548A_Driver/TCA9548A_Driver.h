@@ -4,6 +4,8 @@
 #include "main.h"
 #include "stm32f4xx_hal_i2c.h"
 
+#define TCA_ADDRESS (0x70 << 1)
+
 typedef enum {
     TCA9548A_OK = 0,
     TCA9548A_ERROR = 1

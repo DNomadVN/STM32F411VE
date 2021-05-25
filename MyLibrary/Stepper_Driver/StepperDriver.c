@@ -33,24 +33,25 @@ STEPPER_STATUS StepperInit(Stepper_HandleTypeDef *stepper,
 						   uint16_t pin_Pulse,
 						   uint8_t microstep,
 						   uint16_t currentPos) {
-	stepper->Port         = port;
+	stepper->Port           = port;
 	stepper->GPIO_Pin_Dir   = pin_Dir;
 	stepper->GPIO_Pin_Pulse = pin_Pulse;
 	stepper->Microstep      = microstep;
-	stepper->CurrentPos     = currentPos;
-	stepper->TargetPos      = currentPos;
+	stepper->CurrentPulse   = currentPos * FACTOR;
+	stepper->TargetPulse    = currentPos * FACTOR;
 
 	return STEPPER_OK;
 }
 
 
 STEPPER_STATUS setCurrentPos(Stepper_HandleTypeDef *stepper, uint16_t current) {
-	stepper->CurrentPos = current;
+	stepper->CurrentPulse = current * FACTOR;
+	stepper->TargetPulse = current * FACTOR;
 	return STEPPER_OK;
 }
 
 STEPPER_STATUS setTargetPos(Stepper_HandleTypeDef *stepper, uint16_t target) {
-	stepper->TargetPos = target;
+	stepper->TargetPulse = target * FACTOR;
 	return STEPPER_OK;
 }
 
@@ -82,29 +83,27 @@ __weak void delay_us(uint16_t us)
 }
 
 STEPPER_STATUS runToTarget(Stepper_HandleTypeDef *stepper) {
-	
-	if (stepper->TargetPos != stepper->CurrentPos) {
-		// convert Position in millimeters to pulses base on microstep
-		uint32_t waitingPul;
-		if (stepper->TargetPos > stepper->CurrentPos) {
-			setDirCCW(stepper);
-			waitingPul = stepper->TargetPos - stepper->CurrentPos;
-		}
-		else {
-			setDirCW(stepper);
-			waitingPul = stepper->CurrentPos - stepper->TargetPos;
-		}
-		waitingPul = waitingPul * 200 * stepper->Microstep / Diameter / PI;
 
-		// output pulse
-		while (waitingPul > 0) {
+	if (stepper->TargetPulse != stepper->CurrentPulse) {
+		// convert Position in millimeters to pulses base on microstep
+		
+		if (stepper->TargetPulse > stepper->CurrentPulse) {
+			setDirCCW(stepper);
 			HAL_GPIO_WritePin(stepper->Port, stepper->GPIO_Pin_Pulse, GPIO_PIN_SET);
 			delay_us(TdelayON);
 			HAL_GPIO_WritePin(stepper->Port, stepper->GPIO_Pin_Pulse, GPIO_PIN_RESET);
 			delay_us(TdelayOFF);
-			waitingPul--;
+			stepper->CurrentPulse++;
 		}
-		stepper->CurrentPos = stepper->TargetPos;
+		else {
+			setDirCW(stepper);
+			HAL_GPIO_WritePin(stepper->Port, stepper->GPIO_Pin_Pulse, GPIO_PIN_SET);
+			delay_us(TdelayON);
+			HAL_GPIO_WritePin(stepper->Port, stepper->GPIO_Pin_Pulse, GPIO_PIN_RESET);
+			delay_us(TdelayOFF);
+			stepper->CurrentPulse--;
+		}
+		return STEPPER_ERROR;
 	}
 	return STEPPER_OK;
 }
