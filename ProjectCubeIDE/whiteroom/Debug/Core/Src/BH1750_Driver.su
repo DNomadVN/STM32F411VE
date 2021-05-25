@@ -1,0 +1,6 @@
+BH1750_Driver.c:36:15:BH1750_Init	24	static
+BH1750_Driver.c:52:15:BH1750_Reset	32	static
+BH1750_Driver.c:67:15:BH1750_PowerState	24	static
+BH1750_Driver.c:80:15:BH1750_SetMtreg	32	static
+BH1750_Driver.c:127:15:BH1750_SetMode	24	static
+BH1750_Driver.c:146:15:BH1750_ReadLight	32	static

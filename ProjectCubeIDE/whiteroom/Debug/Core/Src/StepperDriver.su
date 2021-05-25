@@ -1,0 +1,7 @@
+StepperDriver.c:30:16:StepperInit	24	static
+StepperDriver.c:47:16:setCurrentPos	16	static
+StepperDriver.c:53:16:setTargetPos	16	static
+StepperDriver.c:58:16:setDirCCW	16	static
+StepperDriver.c:63:16:setDirCW	16	static
+StepperDriver.c:68:13:delay_us	16	static
+StepperDriver.c:85:16:runToTarget	16	static

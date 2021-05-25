@@ -1,0 +1,5 @@
+TCA9548A_Driver.c:13:17:TCA9548A_Init	24	static
+TCA9548A_Driver.c:29:17:TCA9548A_SelectSingleChannel	32	static
+TCA9548A_Driver.c:47:17:TCA9548A_SelectMultiChannel	24	static
+TCA9548A_Driver.c:55:9:TCA9548A_ReadStatus	32	static
+TCA9548A_Driver.c:64:17:TCA9548A_DisableAllChannel	32	static
