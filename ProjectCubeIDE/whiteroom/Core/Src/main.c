@@ -79,6 +79,7 @@ uint8_t Done[] = "DONE!!\n";
 uint8_t RunStepperMessage[] = "3 Stepper are running to Target Positions\n";
 uint8_t GetSensorMessage[] = "Getting data from Sensors\n";
 uint8_t ControlLEDMessage[] = "Control the Intensity of each LINE\n";
+uint8_t ReInitSensorMessage[] = "Re-Initialzing Sensor\n";
 
 // Variables for UART
 uint8_t byteTest;
@@ -93,7 +94,8 @@ typedef enum {
 	SET_TARGET_COOR = 3,
 	RUN_STEPPER = 4,
 	GET_SENSOR = 5,
-	CONTROL_LED = 6
+	CONTROL_LED = 6,
+	REINITSENSOR = 7
 } PROGRAM_MODE;
 
 PROGRAM_MODE program = IDLE;
@@ -173,6 +175,9 @@ void ManualControl() {
 		break;
 	case 'L':
 		program = CONTROL_LED;
+		break;
+	case 'R':
+		program = REINITSENSOR;
 		break;
 	}
 }
@@ -397,6 +402,11 @@ int main(void)
 		  GetSensor();
 	  } else if (program == CONTROL_LED) {
 		  ControlLED();
+	  } else if (program == REINITSENSOR) {
+		  HAL_UART_Transmit(&huart2, ReInitSensorMessage, sizeof(ReInitSensorMessage), 10);
+		  userSensorInit();
+		  HAL_UART_Transmit(&huart2, Done, sizeof(Done), 10);
+		  program = IDLE;
 	  }
   }
   /* USER CODE END 3 */
