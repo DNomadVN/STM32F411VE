@@ -43,6 +43,6 @@ BH1750_STATUS BH1750_PowerState(BH1750_HandleTypeDef *hbh1750, uint8_t PowerOn);
 BH1750_STATUS BH1750_SetMtreg(BH1750_HandleTypeDef *hbh1750, uint8_t Mtreg);
 BH1750_STATUS BH1750_SetMode(BH1750_HandleTypeDef *hbh1750, bh1750_mode Mode);
 BH1750_STATUS BH1750_TriggerManualConversion(BH1750_HandleTypeDef *hbh1750);
-BH1750_STATUS BH1750_ReadLight(BH1750_HandleTypeDef *hbh1750, float *Result);
+BH1750_STATUS BH1750_ReadLight(BH1750_HandleTypeDef *hbh1750, uint16_t *Result);
 
 #endif /* BH1750_H_ */

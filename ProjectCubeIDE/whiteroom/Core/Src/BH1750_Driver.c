@@ -143,8 +143,8 @@ BH1750_STATUS BH1750_SetMode(BH1750_HandleTypeDef *hbh1750, bh1750_mode Mode) {
  * @param Result Pointer to your variable for getting result.
  * @retval BH1750 Status
  */
-BH1750_STATUS BH1750_ReadLight(BH1750_HandleTypeDef *hbh1750, float *Result) {
- 	float result;
+BH1750_STATUS BH1750_ReadLight(BH1750_HandleTypeDef *hbh1750, uint16_t *Result) {
+ 	uint16_t result;
 	uint8_t tmp[2];
 
 	if(HAL_OK == HAL_I2C_Master_Receive(hbh1750->I2C_channel, hbh1750->Address, tmp, 2, 10))

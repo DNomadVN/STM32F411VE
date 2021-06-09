@@ -41,14 +41,14 @@
 #define SIZE_DATA 11
 
 // MAX and MIN for STEPPER
-#define STEP0_MAX 256
-#define STEP0_MIN 8
+#define STEP0_MAX 300
+#define STEP0_MIN 60
 
-#define STEP1_MAX 359
-#define STEP1_MIN 111
+#define STEP1_MAX 399
+#define STEP1_MIN 163
 
-#define STEP2_MAX 462
-#define STEP2_MIN 214
+#define STEP2_MAX 505
+#define STEP2_MIN 267
 
 #define SAFE_DISTANCE 103
 
@@ -73,13 +73,11 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 // Messages for UART
 uint8_t Hello[] = "Welcome to Project: Automatic light intensity balance\n";
-uint8_t InitStepperMessage[] = "Setting Current Position of 3 Steppers\n";
-uint8_t TargetStepperMessage[] = "Setting Target Position of 3 Steppers\n";
-uint8_t Done[] = "DONE!!\n";
-uint8_t RunStepperMessage[] = "3 Stepper are running to Target Positions\n";
-uint8_t GetSensorMessage[] = "Getting data from Sensors\n";
-uint8_t ControlLEDMessage[] = "Control the Intensity of each LINE\n";
-uint8_t ReInitSensorMessage[] = "Re-Initialzing Sensor\n";
+uint8_t InitStepperMessage[] = "Setting Current Position of 3 Steppers: Done!\n";
+uint8_t TargetStepperMessage[] = "Setting Target Position of 3 Steppers: Done!\n";
+uint8_t ReInitSensorMessage[] = "Re-Initialzing Sensor: Done!\n";
+uint8_t Done[] = "Running to Target Position: Done!!\n";
+uint8_t controlLEDDone[] = "Send data to LED PWM: Done!\n";
 
 // Variables for UART
 uint8_t byteTest;
@@ -108,8 +106,8 @@ Stepper_HandleTypeDef Step2;
 // Variables for Sensor and TCA
 TCA9548A_HandleTypeDef i2cHub;
 BH1750_HandleTypeDef sensor[4];
-char dataSensorMessage[10];
-float dataSensor[4];
+char dataSensorMessage[24] = {};
+uint16_t dataSensor[4];
 uint8_t ret;
 
 // Variables for PCA and LED
@@ -262,6 +260,8 @@ void sendInfoPWM() {
 	}
 }
 
+
+
 // THE MAIN PROGRAMS
 void TestUART() { // DONE
 	HAL_UART_Transmit(&huart2, Hello, sizeof(Hello), 1000);
@@ -269,31 +269,50 @@ void TestUART() { // DONE
 }
 
 void SetInitCoorStepper() {
-	HAL_UART_Transmit(&huart2, InitStepperMessage, sizeof(InitStepperMessage), 1000);
 	DecryptData();
 	setCurrentPos(&Step0, info[0]);
 	setCurrentPos(&Step1, info[1]);
 	setCurrentPos(&Step2, info[2]);
-	sendUARTaInt(Step0.CurrentPulse / FACTOR);
-	sendUARTaInt(Step1.CurrentPulse / FACTOR);
-	sendUARTaInt(Step2.CurrentPulse / FACTOR);
-	HAL_UART_Transmit(&huart2, Done, sizeof(Done), 1000);
+	HAL_UART_Transmit(&huart2, InitStepperMessage, sizeof(InitStepperMessage), 1000);
 	program = IDLE;
 }
 
 void SetTargetCoorStepper() {
-	HAL_UART_Transmit(&huart2, TargetStepperMessage, sizeof(TargetStepperMessage), 1000);
 	DecryptData();
 	setTargetPos(&Step0, info[0]);
 	setTargetPos(&Step1, info[1]);
 	setTargetPos(&Step2, info[2]);
 	keepMotorSafe();
-	sendUARTaInt(Step0.TargetPulse / FACTOR);
-	sendUARTaInt(Step1.TargetPulse / FACTOR);
-	sendUARTaInt(Step2.TargetPulse / FACTOR);
-	HAL_UART_Transmit(&huart2, Done, sizeof(Done), 1000);
+	uint32_t locationStep0 = Step0.TargetPulse / FACTOR;
+	uint32_t locationStep1 = Step1.TargetPulse / FACTOR;
+	uint32_t locationStep2 = Step2.TargetPulse / FACTOR;
+	uint8_t locationMessage[20];
+	locationMessage[0] = 'T';
+	locationMessage[1] = 'a';
+	locationMessage[2] = 'r';
+	locationMessage[3] = 'g';
+	locationMessage[4] = 'e';
+	locationMessage[5] = 't';
+	locationMessage[6] = ':';
+	locationMessage[7] = ' ';
+	// Step0
+	locationMessage[10] = locationStep0 % 10 + '0';
+	locationMessage[9] = locationStep0 / 10 % 10 + '0';
+	locationMessage[8] = locationStep0 / 100 % 10 + '0';
+	locationMessage[11] = ' ';
+	// Step1
+	locationMessage[14] = locationStep1 % 10 + '0';
+	locationMessage[13] = locationStep1 / 10 % 10 + '0';
+	locationMessage[12] = locationStep1 / 100 % 10 + '0';
+	locationMessage[15] = ' ';
+	// Step2
+	locationMessage[18] = locationStep2 % 10 + '0';
+	locationMessage[17] = locationStep2 / 10 % 10 + '0';
+	locationMessage[16] = locationStep2 / 100 % 10 + '0';
+	locationMessage[19] = '\n';
+
+	HAL_UART_Transmit(&huart2, locationMessage, sizeof(locationMessage), 1000);
 	program = RUN_STEPPER;
-	HAL_UART_Transmit(&huart2, RunStepperMessage, sizeof(RunStepperMessage), 1000);
 }
 
 void RunStepper() {
@@ -308,30 +327,28 @@ void RunStepper() {
 }
 
 void GetSensor() {
-	HAL_UART_Transmit(&huart2, GetSensorMessage, sizeof(GetSensorMessage), 1000);
 	for (uint8_t i = 0; i < 4; i++) {
 		TCA9548A_SelectSingleChannel(&i2cHub, i);
 		BH1750_ReadLight(&sensor[i], &dataSensor[i]);
 
-		ret = snprintf(dataSensorMessage, sizeof(dataSensorMessage), "%f", dataSensor[i]);
-		if (i < 3) dataSensorMessage[9] = ' ';
-		else dataSensorMessage[9] = '\n';
-		HAL_UART_Transmit(&huart2, (uint8_t *)dataSensorMessage, 10, 10);
+		dataSensorMessage[i*6 + 5] = (i < 3) ? ' ' : '\n';
+		dataSensorMessage[i*6 + 4] = dataSensor[i] % 10 + '0';
+		dataSensorMessage[i*6 + 3] = dataSensor[i] / 10 % 10 + '0';
+		dataSensorMessage[i*6 + 2] = dataSensor[i] / 100 % 10 + '0';
+		dataSensorMessage[i*6 + 1] = dataSensor[i] / 1000 % 10 + '0';
+		dataSensorMessage[i*6 + 0] = dataSensor[i] / 10000 % 10 + '0';
 	}
+	HAL_UART_Transmit(&huart2, (uint8_t *)dataSensorMessage, 24, 24);
 	program = IDLE;
 }
 
 void ControlLED() {
-	HAL_UART_Transmit(&huart2, ControlLEDMessage, sizeof(ControlLEDMessage), 1000);
 	DecryptData();
 	intensity[0] = info[0];
 	intensity[1] = info[1];
 	intensity[2] = info[2];
-	sendUARTaInt(intensity[0]);
-	sendUARTaInt(intensity[1]);
-	sendUARTaInt(intensity[2]);
 	sendInfoPWM();
-	HAL_UART_Transmit(&huart2, Done, sizeof(Done), 1000);
+	HAL_UART_Transmit(&huart2, controlLEDDone, sizeof(controlLEDDone), 10);
 	program = IDLE;
 }
 
@@ -405,7 +422,6 @@ int main(void)
 	  } else if (program == REINITSENSOR) {
 		  HAL_UART_Transmit(&huart2, ReInitSensorMessage, sizeof(ReInitSensorMessage), 10);
 		  userSensorInit();
-		  HAL_UART_Transmit(&huart2, Done, sizeof(Done), 10);
 		  program = IDLE;
 	  }
   }
