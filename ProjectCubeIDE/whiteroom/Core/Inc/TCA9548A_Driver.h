@@ -1,8 +1,7 @@
 #ifndef TCA9548_H_
 #define TCA9548_H_
 
-#include "main.h"
-#include "stm32f4xx_hal_i2c.h"
+#include "stm32f4xx_hal.h"
 
 #define TCA_ADDRESS (0x70 << 1)
 
