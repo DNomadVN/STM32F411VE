@@ -1,10 +1,10 @@
-20:04:28 **** Incremental Build of configuration Debug for project whiteroom ****
+12:34:42 **** Incremental Build of configuration Debug for project whiteroom ****
 make -j4 all 
 arm-none-eabi-size   whiteroom.elf 
    text	   data	    bss	    dec	    hex	filename
-  46132	    664	   2112	  48908	   bf0c	whiteroom.elf
+  46132	    692	   2116	  48940	   bf2c	whiteroom.elf
 Finished building: default.size.stdout
  
 
-20:04:28 Build Finished. 0 errors, 0 warnings. (took 469ms)
+12:34:44 Build Finished. 0 errors, 0 warnings. (took 1s.860ms)
 

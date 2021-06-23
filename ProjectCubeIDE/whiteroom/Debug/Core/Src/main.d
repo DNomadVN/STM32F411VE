@@ -30,8 +30,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h \
  ../Core/Inc/BH1750_Driver.h ../Core/Inc/TCA9548A_Driver.h \
- ../Core/Inc/main.h ../Core/Inc/StepperDriver.h \
- ../Core/Inc/PCA9685Driver.h
+ ../Core/Inc/StepperDriver.h ../Core/Inc/PCA9685Driver.h
 
 ../Core/Inc/main.h:
 
@@ -98,8 +97,6 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/BH1750_Driver.h:
 
 ../Core/Inc/TCA9548A_Driver.h:
-
-../Core/Inc/main.h:
 
 ../Core/Inc/StepperDriver.h:
 

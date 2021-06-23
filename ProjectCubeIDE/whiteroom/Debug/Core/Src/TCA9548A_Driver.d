@@ -1,5 +1,5 @@
 Core/Src/TCA9548A_Driver.o: ../Core/Src/TCA9548A_Driver.c \
- ../Core/Inc/TCA9548A_Driver.h ../Core/Inc/main.h \
+ ../Core/Inc/TCA9548A_Driver.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h \
  ../Core/Inc/stm32f4xx_hal_conf.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h \
@@ -32,8 +32,6 @@ Core/Src/TCA9548A_Driver.o: ../Core/Src/TCA9548A_Driver.c \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
 
 ../Core/Inc/TCA9548A_Driver.h:
-
-../Core/Inc/main.h:
 
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 

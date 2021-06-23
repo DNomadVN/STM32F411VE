@@ -41,16 +41,16 @@
 #define SIZE_DATA 11
 
 // MAX and MIN for STEPPER
-#define STEP0_MAX 300
-#define STEP0_MIN 60
+#define STEP0_MAX 295
+#define STEP0_MIN 55
 
-#define STEP1_MAX 399
-#define STEP1_MIN 163
+#define STEP1_MAX 400
+#define STEP1_MIN 160
 
 #define STEP2_MAX 505
-#define STEP2_MIN 267
+#define STEP2_MIN 265
 
-#define SAFE_DISTANCE 103
+#define SAFE_DISTANCE 105
 
 // PCA9685
 #define DELAY_LED 410
