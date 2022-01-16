@@ -22,6 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "arm_math.h"
 #include <stdio.h>
 #include "BH1750_Driver.h"
 #include "TCA9548A_Driver.h"
@@ -37,6 +38,23 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define NUMBER_SENSORS 12
+#define DESIRE_LUX 400
+#define MAX_LUMEN_LED0 3000
+#define MAX_LUMEN_LED1 3000
+#define MAX_LUMEN_LED2 3000
+#define MAX_LUMEN_LED3 3000
+#define MAX_LUMEN_LED4 3000
+#define MAX_LUMEN_LED5 3000
+#define MAX_LUMEN_LED6 3000
+#define MAX_LUMEN_LED7 3000
+#define MAX_LUMEN_LED8 3000
+#define MAX_LUMEN_LED9 3000
+#define MAX_LUMEN_LED10 3000
+#define MAX_LUMEN_LED11 3000
+
+#define EFFICIENCY 0.995
+
 // The size of data transmits between PC and MicroController
 #define SIZE_DATA 11
 
@@ -62,15 +80,32 @@
 
 /* USER CODE END PM */
 
+/* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
-
 TIM_HandleTypeDef htim2;
-
 UART_HandleTypeDef huart2;
 
-/* USER CODE BEGIN PV */
+const float32_t arrayFactor[NUMBER_SENSORS * NUMBER_SENSORS] = {
+0.03757, 0.01759, 0.00530, 0.00240, 0.01820, 0.01053, 0.00435, 0.00227, 0.00581, 0.00471, 0.00278, 0.00184,
+0.01799, 0.03400, 0.01666, 0.00544, 0.01094, 0.01653, 0.01001, 0.00436, 0.00471, 0.00563, 0.00436, 0.00284,
+0.00544, 0.01666, 0.03400, 0.01799, 0.00436, 0.01001, 0.01653, 0.01094, 0.00284, 0.00436, 0.00563, 0.00471,
+0.00240, 0.00530, 0.01759, 0.03757, 0.00227, 0.00435, 0.01053, 0.01820, 0.00184, 0.00278, 0.00471, 0.00581,
+0.01840, 0.01073, 0.00435, 0.00236, 0.03671, 0.01760, 0.00563, 0.00270, 0.01960, 0.01160, 0.00471, 0.00244,
+0.01107, 0.01673, 0.01020, 0.00436, 0.01800, 0.03357, 0.01653, 0.00567, 0.01159, 0.01800, 0.01073, 0.00494,
+0.00436, 0.01020, 0.01673, 0.01107, 0.00567, 0.01653, 0.03357, 0.01800, 0.00494, 0.01073, 0.01800, 0.01159,
+0.00236, 0.00435, 0.01073, 0.01840, 0.00270, 0.00563, 0.01760, 0.03671, 0.00244, 0.00471, 0.01160, 0.01960,
+0.00581, 0.00456, 0.00273, 0.00175, 0.01934, 0.01160, 0.00457, 0.00253, 0.04043, 0.01906, 0.00602, 0.00264,
+0.00471, 0.00563, 0.00436, 0.00290, 0.01160, 0.01760, 0.01053, 0.00471, 0.01947, 0.03671, 0.01800, 0.00600,
+0.00290, 0.00436, 0.00563, 0.00471, 0.00471, 0.01053, 0.01760, 0.01160, 0.00600, 0.01800, 0.03671, 0.01947,
+0.00175, 0.00273, 0.00456, 0.00581, 0.00253, 0.00457, 0.01160, 0.01934, 0.00264, 0.00602, 0.01906, 0.04043
+};
+
+float32_t arrNeedAddValue[NUMBER_SENSORS];
+float32_t arrLastLedSupplied[NUMBER_SENSORS] = {};
+float32_t arrLedValue[NUMBER_SENSORS];
+
 // Messages for UART
 uint8_t Hello[] = "Welcome to Project: Automatic light intensity balance\n";
 uint8_t InitStepperMessage[] = "Setting Current Position of 3 Steppers: Done!\n";
@@ -93,7 +128,8 @@ typedef enum {
 	RUN_STEPPER = 4,
 	GET_SENSOR = 5,
 	CONTROL_LED = 6,
-	REINITSENSOR = 7
+	REINITSENSOR = 7,
+	AUTO_CONTROL = 8
 } PROGRAM_MODE;
 
 PROGRAM_MODE program = IDLE;
@@ -105,16 +141,16 @@ Stepper_HandleTypeDef Step2;
 
 // Variables for Sensor and TCA
 TCA9548A_HandleTypeDef i2cHub;
-BH1750_HandleTypeDef sensor[4];
-char dataSensorMessage[24] = {};
-uint16_t dataSensor[4];
+BH1750_HandleTypeDef sensor[NUMBER_SENSORS];
+char dataSensorMessage[72] = {};
+uint16_t dataSensor[NUMBER_SENSORS];
 uint8_t ret;
 
 // Variables for PCA and LED
 PCA9685_HandleTypeDef pcaHub;
-uint16_t intensity[3];
-uint16_t channelON[6];
-uint16_t channelOFF[6];
+uint16_t intensity[NUMBER_SENSORS];
+uint16_t channelON[NUMBER_SENSORS];
+uint16_t channelOFF[NUMBER_SENSORS];
 
 
 /* USER CODE END PV */
@@ -132,7 +168,7 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-// Init Stepper, Sensor, TCA, PCA
+// Initialize Stepper, Sensor, TCA, PCA
 void userStepperInit() {
 	StepperInit(&Step0, GPIOA, GPIO_PIN_9, GPIO_PIN_8, 32, 0);
 	StepperInit(&Step1, GPIOC, GPIO_PIN_9, GPIO_PIN_8, 32, 0);
@@ -141,11 +177,14 @@ void userStepperInit() {
 
 void userSensorInit() {
 	TCA9548A_Init(&i2cHub, &hi2c1, TCA_ADDRESS);
-	for (uint8_t i = 0; i < 4; i++) {
+	for (uint8_t i = 0; i < NUMBER_SENSORS / 2; i++) {
 		TCA9548A_SelectSingleChannel(&i2cHub, i);
-		BH1750_Init(&sensor[i], &hi2c1, BH1750_ADDRESS_LOW);
-		BH1750_PowerState(&sensor[i], 1);
-		BH1750_SetMode(&sensor[i], CONTINUOUS_H_RES_MODE);
+		BH1750_Init(&sensor[2 * i], &hi2c1, BH1750_ADDRESS_LOW);
+		BH1750_Init(&sensor[2 * i + 1], &hi2c1, BH1750_ADDRESS_HIGH);
+		BH1750_PowerState(&sensor[2 * i], 1);
+		BH1750_PowerState(&sensor[2 * i + 1], 1);
+		BH1750_SetMode(&sensor[2 * i], CONTINUOUS_H_RES_MODE);
+		BH1750_SetMode(&sensor[2 * i + 1], CONTINUOUS_H_RES_MODE);
 	}
 }
 
@@ -182,10 +221,10 @@ void ManualControl() {
 
 // CHOOSE THE AUTO CONTROL PROGRAM (It's still under UART interrupt function)
 void AutoControl() {
-
+	program = AUTO_CONTROL;
 }
 
-// Select PROGRAM
+// Select PROGRAM in UART interrupt function
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if (huart->Instance == huart2.Instance) {
@@ -213,6 +252,15 @@ void DecryptData() {
 	info[0] = (dataReceived[2] - '0') * 100 + (dataReceived[3] - '0') * 10 + (dataReceived[4]  - '0');
 	info[1] = (dataReceived[5] - '0') * 100 + (dataReceived[6] - '0') * 10 + (dataReceived[7]  - '0');
 	info[2] = (dataReceived[8] - '0') * 100 + (dataReceived[9] - '0') * 10 + (dataReceived[10] - '0');
+	info[3] = (dataReceived[11] - '0') * 100 + (dataReceived[12] - '0') * 10 + (dataReceived[13] - '0');
+	info[4] = (dataReceived[14] - '0') * 100 + (dataReceived[15] - '0') * 10 + (dataReceived[16] - '0');
+	info[5] = (dataReceived[17] - '0') * 100 + (dataReceived[18] - '0') * 10 + (dataReceived[19] - '0');
+	info[6] = (dataReceived[20] - '0') * 100 + (dataReceived[21] - '0') * 10 + (dataReceived[22] - '0');
+	info[7] = (dataReceived[23] - '0') * 100 + (dataReceived[24] - '0') * 10 + (dataReceived[25] - '0');
+	info[8] = (dataReceived[26] - '0') * 100 + (dataReceived[27] - '0') * 10 + (dataReceived[28] - '0');
+	info[9] = (dataReceived[29] - '0') * 100 + (dataReceived[30] - '0') * 10 + (dataReceived[31] - '0');
+	info[10] = (dataReceived[32] - '0') * 100 + (dataReceived[33] - '0') * 10 + (dataReceived[34] - '0');
+	info[11] = (dataReceived[35] - '0') * 100 + (dataReceived[36] - '0') * 10 + (dataReceived[37] - '0');
 }
 
 // Hold 3 board to avoid collision
@@ -250,17 +298,15 @@ void sendUARTaInt(uint16_t num) {
 
 void sendInfoPWM() {
 	uint16_t LEDOnTime;
-	for (uint8_t channel = 0; channel < 6; channel++) {
+	for (uint8_t channel = 0; channel < NUMBER_SENSORS; channel++) {
 		channelON[channel] = DELAY_LED - 1;
-		LEDOnTime = intensity[channel / 2] * 4096 / 1000;
+		LEDOnTime = intensity[channel] * 4096 / 1000;
 		channelOFF[channel]  = (LEDOnTime + DELAY_LED > 4096
 								? LEDOnTime + DELAY_LED - 4096
 								: LEDOnTime + DELAY_LED - 1);
 		PCA9685_SetPWM(&pcaHub, channel, channelON[channel], channelOFF[channel]);
 	}
 }
-
-
 
 // THE MAIN PROGRAMS
 void TestUART() { // DONE
@@ -327,8 +373,8 @@ void RunStepper() {
 }
 
 void GetSensor() {
-	for (uint8_t i = 0; i < 4; i++) {
-		TCA9548A_SelectSingleChannel(&i2cHub, i);
+	for (uint8_t i = 0; i < NUMBER_SENSORS; i++) {
+		TCA9548A_SelectSingleChannel(&i2cHub, (int)(i / 2));
 		BH1750_ReadLight(&sensor[i], &dataSensor[i]);
 
 		dataSensorMessage[i*6 + 5] = (i < 3) ? ' ' : '\n';
@@ -338,18 +384,109 @@ void GetSensor() {
 		dataSensorMessage[i*6 + 1] = dataSensor[i] / 1000 % 10 + '0';
 		dataSensorMessage[i*6 + 0] = dataSensor[i] / 10000 % 10 + '0';
 	}
-	HAL_UART_Transmit(&huart2, (uint8_t *)dataSensorMessage, 24, 24);
+	HAL_UART_Transmit(&huart2, (uint8_t *)dataSensorMessage, sizeof(dataSensorMessage), 24);
 	program = IDLE;
 }
 
 void ControlLED() {
 	DecryptData();
-	intensity[0] = info[0];
-	intensity[1] = info[1];
-	intensity[2] = info[2];
+	for (int i = 0; i < NUMBER_SENSORS; i++) {
+		intensity[i] = info[i];
+	}
 	sendInfoPWM();
 	HAL_UART_Transmit(&huart2, controlLEDDone, sizeof(controlLEDDone), 10);
 	program = IDLE;
+}
+
+void calculateLedIntensity(arm_matrix_instance_f32 *needAddValue,
+						   arm_matrix_instance_f32 *ledValue) {
+	int wrongValue = 0;
+	int wrongIndex[NUMBER_SENSORS];
+	// Loai bo cac diem anh sang tu nhien lon hon 400
+	for (int i = 0; i < NUMBER_SENSORS; i++) {
+		if (arrNeedAddValue[i] == 0) {
+			wrongValue++;
+			wrongIndex[i] = 1;
+		} else {
+			wrongIndex[i] = 0;
+		}
+	}
+	do {
+		float32_t copyArrFactor[NUMBER_SENSORS * NUMBER_SENSORS];
+		memcpy(copyArrFactor, arrayFactor, NUMBER_SENSORS * NUMBER_SENSORS);
+		arm_matrix_instance_f32 copyMatrixFactor;
+		arm_mat_init_f32(&copyMatrixFactor, NUMBER_SENSORS, 1, (float32_t *)copyArrFactor);
+		for (int i = 0; i < NUMBER_SENSORS; i++) {
+			if (wrongIndex[i] == 1) {
+				for (int j = 0; j < NUMBER_SENSORS; j++) {
+					copyArrFactor[i * NUMBER_SENSORS + j] = 0.0;
+					copyArrFactor[j * NUMBER_SENSORS + i] = 0.0;
+				}
+				copyArrFactor[i * (NUMBER_SENSORS + 1)] = 1.0;
+				arrNeedAddValue[i] =  0.0;
+			}
+		}
+		arm_matrix_instance_f32 inverseFactor;
+		float32_t arrInverseFactor[NUMBER_SENSORS * NUMBER_SENSORS];
+		arm_mat_init_f32(&inverseFactor, NUMBER_SENSORS, 1, (float32_t *)arrInverseFactor);
+		arm_mat_inverse_f32((const arm_matrix_instance_f32 *)copyArrFactor, &inverseFactor);
+		arm_mat_mult_f32(&inverseFactor, needAddValue, ledValue);
+		wrongValue = 0;
+		for (int i = 0; i < NUMBER_SENSORS; i++) {
+			if (arrLedValue[i] < 0) {
+				wrongValue++;
+				wrongIndex[i] = 1;
+			}
+		}
+	} while (program == AUTO_CONTROL);
+}
+
+void convertLumenToPWM() {
+	intensity[0] = arrLedValue[0] / MAX_LUMEN_LED0 * 1000 / EFFICIENCY;
+	intensity[1] = arrLedValue[1] / MAX_LUMEN_LED1 * 1000 / EFFICIENCY;
+	intensity[2] = arrLedValue[2] / MAX_LUMEN_LED2 * 1000 / EFFICIENCY;
+	intensity[3] = arrLedValue[3] / MAX_LUMEN_LED3 * 1000 / EFFICIENCY;
+	intensity[4] = arrLedValue[4] / MAX_LUMEN_LED4 * 1000 / EFFICIENCY;
+	intensity[5] = arrLedValue[5] / MAX_LUMEN_LED5 * 1000 / EFFICIENCY;
+	intensity[6] = arrLedValue[6] / MAX_LUMEN_LED6 * 1000 / EFFICIENCY;
+	intensity[7] = arrLedValue[7] / MAX_LUMEN_LED7 * 1000 / EFFICIENCY;
+	intensity[8] = arrLedValue[8] / MAX_LUMEN_LED8 * 1000 / EFFICIENCY;
+	intensity[9] = arrLedValue[9] / MAX_LUMEN_LED9 * 1000 / EFFICIENCY;
+	intensity[10] = arrLedValue[10] / MAX_LUMEN_LED10 * 1000 / EFFICIENCY;
+	intensity[11] = arrLedValue[11] / MAX_LUMEN_LED11 * 1000 / EFFICIENCY;
+}
+
+void automation() {
+	for (int i = 0; i < NUMBER_SENSORS; i++) {
+		intensity[i] = 0;
+	}
+	sendInfoPWM();
+
+	arm_matrix_instance_f32 matrixFactor;
+	arm_matrix_instance_f32 needAddValue;
+	arm_matrix_instance_f32 lastLedSupplied;
+	arm_matrix_instance_f32 ledValue;
+
+	arm_mat_init_f32(&matrixFactor, NUMBER_SENSORS, NUMBER_SENSORS, (float32_t *)arrayFactor);
+	arm_mat_init_f32(&needAddValue, NUMBER_SENSORS, 1, (float32_t *)arrNeedAddValue);
+	arm_mat_init_f32(&lastLedSupplied, NUMBER_SENSORS, 1, (float32_t *)arrLastLedSupplied);
+	arm_mat_init_f32(&ledValue, NUMBER_SENSORS, 1, (float32_t *)arrLedValue);
+
+	while (program == AUTO_CONTROL) {
+		// GET INPUT
+		for (int i = 0; i < NUMBER_SENSORS; i++) {
+			float32_t natureValue = (dataSensor[i] > arrLastLedSupplied[i])
+									? dataSensor[i] - arrLastLedSupplied[i] : 0;
+			arrNeedAddValue[i] = (DESIRE_LUX > natureValue)
+									? DESIRE_LUX - natureValue : 0;
+		}
+
+		calculateLedIntensity(&needAddValue, &ledValue);
+		arm_mat_mult_f32(&matrixFactor, &ledValue, &lastLedSupplied);
+		convertLumenToPWM();
+		sendInfoPWM();
+
+	}
 }
 
 
@@ -423,6 +560,8 @@ int main(void)
 		  HAL_UART_Transmit(&huart2, ReInitSensorMessage, sizeof(ReInitSensorMessage), 10);
 		  userSensorInit();
 		  program = IDLE;
+	  } else if (program == AUTO_CONTROL) {
+		  automation();
 	  }
   }
   /* USER CODE END 3 */

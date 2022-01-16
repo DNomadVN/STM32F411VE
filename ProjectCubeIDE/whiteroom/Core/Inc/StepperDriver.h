@@ -9,7 +9,6 @@
 
 // diameter of pulley (millimeters)
 #define DIAMETER 13.2
-#define PI 		  3.14159
 
 // Chuyen muc fake so
 // PulTranfer = 200 * stepper->Microstep / Diameter / PI    = 160
